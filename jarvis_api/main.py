@@ -1,9 +1,10 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 import requests
 import os
 from dotenv import load_dotenv
 
-load_dotenv()  # .envファイルを読み込む
+# .envファイルの読み込み（SUPABASE情報が入っている）
+load_dotenv()
 
 app = FastAPI()
 
@@ -13,8 +14,16 @@ TABLE_NAME = "memory_fragments"
 
 @app.post("/record-memory")
 async def record_memory(request: Request):
+    # 🔐 クライアントから送られてきた「鍵（APIキー）」を取り出す
+    client_key = request.headers.get("apikey")
+
+    # 🔍 鍵が正しいかチェック（間違ってたら403エラー）
+    if client_key != SUPABASE_KEY:
+        raise HTTPException(status_code=403, detail="Forbidden: Invalid API Key")
+
+    # ✅ 正しければ、記憶データを読み取ってSupabaseに保存
     data = await request.json()
-    
+
     response = requests.post(
         f"{SUPABASE_URL}/rest/v1/{TABLE_NAME}",
         json=data,
@@ -25,4 +34,8 @@ async def record_memory(request: Request):
             "Prefer": "return=representation"
         }
     )
-    return {"status": response.status_code, "result": response.json()}
+
+    return {
+        "status": response.status_code,
+        "result": response.json()
+    }
