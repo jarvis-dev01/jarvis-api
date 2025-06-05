@@ -1,5 +1,3 @@
-# main.py をログ付きに修正して提供する
-debug_main_py = """
 from fastapi import FastAPI, Request, HTTPException
 import requests
 import os
@@ -56,11 +54,3 @@ async def record_memory(request: Request):
         "status": response.status_code,
         "result": result_json
     }
-"""
-
-# 保存
-debug_main_path = "/mnt/data/main_debug.py"
-with open(debug_main_path, "w", encoding="utf-8") as f:
-    f.write(debug_main_py)
-
-debug_main_path
