@@ -5,15 +5,15 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-app = FastAPI()
-
+# ✅ ここに print を追加（FastAPIの前）
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 API_KEY = os.getenv("API_KEY")
-TABLE_NAME = "memory_fragments"
-
-# 🔽 追加ログ出力（Renderログに現れる）
 print(f"🧪 環境変数 SUPABASE_KEY = {SUPABASE_KEY}")
+
+app = FastAPI()
+
+TABLE_NAME = "memory_fragments"
 
 @app.post("/record-memory")
 async def record_memory(request: Request):
