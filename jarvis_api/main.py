@@ -1,3 +1,5 @@
+# main.py をログ付きに修正して提供する
+debug_main_py = """
 from fastapi import FastAPI, Request, HTTPException
 import requests
 import os
@@ -15,13 +17,17 @@ TABLE_NAME = "memory_fragments"
 @app.post("/record-memory")
 async def record_memory(request: Request):
     client_key = request.headers.get("apikey")
+    print(f"🔑 client_key = {client_key}")
 
     if client_key != API_KEY:
+        print("❌ APIキーが一致しません")
         raise HTTPException(status_code=403, detail="Forbidden: Invalid API Key")
 
     try:
         data = await request.json()
+        print(f"📦 受信データ = {data}")
     except Exception as e:
+        print(f"⚠️ JSON読み込みエラー: {str(e)}")
         raise HTTPException(status_code=400, detail=f"JSON読み込み失敗: {str(e)}")
 
     try:
@@ -35,7 +41,10 @@ async def record_memory(request: Request):
                 "Prefer": "return=representation"
             }
         )
+        print(f"📨 Supabase応答コード: {response.status_code}")
+        print(f"📨 Supabase応答ボディ: {response.text}")
     except Exception as e:
+        print(f"🔥 Supabase送信中にエラー: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Supabase POST失敗: {str(e)}")
 
     try:
@@ -47,3 +56,11 @@ async def record_memory(request: Request):
         "status": response.status_code,
         "result": result_json
     }
+"""
+
+# 保存
+debug_main_path = "/mnt/data/main_debug.py"
+with open(debug_main_path, "w", encoding="utf-8") as f:
+    f.write(debug_main_py)
+
+debug_main_path
