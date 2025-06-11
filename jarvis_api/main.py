@@ -21,7 +21,12 @@ app = FastAPI()
 # 🔐 POST: 記憶を保存
 @app.post("/record-memory")
 async def record_memory(request: Request):
-    client_key = request.headers.get("apikey")
+    # 複数ヘッダー形式に対応
+    client_key = (
+        request.headers.get("apikey") or
+        request.headers.get("API_KEY") or
+        request.headers.get("Authorization")
+    )
     print(f"🔑 client_key = {client_key}")
 
     if client_key != API_KEY:
@@ -60,7 +65,6 @@ def get_memory(tag: str = Query(None)):
         "Content-Type": "application/json"
     }
 
-    # 🔽 必要カラムだけ選択＋最大10件に制限
     base_url = f"{SUPABASE_URL}/rest/v1/{TABLE_NAME}?select=content,created_at&limit=10"
 
     if tag:
