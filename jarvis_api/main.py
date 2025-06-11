@@ -51,7 +51,7 @@ async def record_memory(request: Request):
     return {"status": "ok", "data": response.json()}
 
 
-# 📥 GET: 記憶を取得
+# 📥 GET: 記憶を取得（軽量バージョン）
 @app.get("/get-memory")
 def get_memory(tag: str = Query(None)):
     headers = {
@@ -60,10 +60,13 @@ def get_memory(tag: str = Query(None)):
         "Content-Type": "application/json"
     }
 
+    # 🔽 必要カラムだけ選択＋最大10件に制限
+    base_url = f"{SUPABASE_URL}/rest/v1/{TABLE_NAME}?select=content,created_at&limit=10"
+
     if tag:
-        url = f"{SUPABASE_URL}/rest/v1/{TABLE_NAME}?tag=eq.{tag}&select=*"
+        url = f"{base_url}&tag=eq.{tag}"
     else:
-        url = f"{SUPABASE_URL}/rest/v1/{TABLE_NAME}?select=*"
+        url = base_url
 
     response = requests.get(url, headers=headers)
     print(f"📤 Supabaseからの応答: {response.text}")
