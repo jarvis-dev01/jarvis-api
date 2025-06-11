@@ -1,81 +1,59 @@
-from fastapi import FastAPI, Request, HTTPException, Query
-from fastapi.responses import JSONResponse
-import requests
+from fastapi import FastAPI, HTTPException, Query
+from pydantic import BaseModel
+from datetime import datetime
 import os
-from dotenv import load_dotenv
-import json
-
-# ✅ .env のパスを明示指定
-dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
-load_dotenv(dotenv_path)
-
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-API_KEY = os.getenv("API_KEY")
-TABLE_NAME = "memory_fragments"
-
-print(f"🧪 環境変数 SUPABASE_KEY = {SUPABASE_KEY}")
+import requests
 
 app = FastAPI()
 
-# 🔐 POST: 記憶を保存
-@app.post("/record-memory")
-async def record_memory(request: Request):
-    # 複数ヘッダー形式に対応
-    client_key = (
-        request.headers.get("apikey") or
-        request.headers.get("API_KEY") or
-        request.headers.get("Authorization")
-    )
-    print(f"🔑 client_key = {client_key}")
+# 環境変数からAPIキーを読み込む
+API_KEY = os.getenv("API_KEY")
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_API_KEY = os.getenv("SUPABASE_API_KEY")
 
-    if client_key != API_KEY:
-        print("❌ APIキーが一致しません")
+# モデル定義
+class MemoryItem(BaseModel):
+    content: str
+    role: str = "system"
+    tag: str = ""
+    type: str = "log"
+
+# POSTエンドポイント：記憶を保存（認証はクエリパラメータで受け取る）
+@app.post("/record-memory")
+async def record_memory(item: MemoryItem, api_key: str = Query(None)):
+    if api_key != API_KEY:
         raise HTTPException(status_code=403, detail="Forbidden: Invalid API Key")
 
-    try:
-        data = await request.json()
-        print(f"📦 受信データ = {data}")
-    except Exception as e:
-        print(f"⚠️ JSON読み込みエラー: {str(e)}")
-        raise HTTPException(status_code=400, detail=f"JSON読み込み失敗: {str(e)}")
-
-    headers = {
-        "apikey": SUPABASE_KEY,
-        "Authorization": f"Bearer {SUPABASE_KEY}",
-        "Content-Type": "application/json",
-        "Prefer": "return=representation"
+    now = datetime.utcnow().isoformat()
+    payload = {
+        "content": item.content,
+        "role": item.role,
+        "tag": item.tag,
+        "type": item.type,
+        "created_at": now
     }
-
-    response = requests.post(f"{SUPABASE_URL}/rest/v1/{TABLE_NAME}", headers=headers, json=data)
-    print(f"📤 Supabase応答 = {response.text}")
-
-    if response.status_code != 201:
-        raise HTTPException(status_code=response.status_code, detail="Supabaseへの保存に失敗しました")
-
-    return {"status": "ok", "data": response.json()}
-
-
-# 📥 GET: 記憶を取得（軽量バージョン）
-@app.get("/get-memory")
-def get_memory(tag: str = Query(None)):
     headers = {
-        "apikey": SUPABASE_KEY,
-        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "apikey": SUPABASE_API_KEY,
+        "Authorization": f"Bearer {SUPABASE_API_KEY}",
         "Content-Type": "application/json"
     }
+    response = requests.post(f"{SUPABASE_URL}/rest/v1/memory_fragments", json=payload, headers=headers)
 
-    base_url = f"{SUPABASE_URL}/rest/v1/{TABLE_NAME}?select=content,created_at&limit=10"
+    if response.status_code != 201:
+        raise HTTPException(status_code=500, detail=f"Supabase Error: {response.text}")
+    
+    return {"status": "success", "supabase_response": response.json()}
 
-    if tag:
-        url = f"{base_url}&tag=eq.{tag}"
-    else:
-        url = base_url
-
-    response = requests.get(url, headers=headers)
-    print(f"📤 Supabaseからの応答: {response.text}")
-
+# GETエンドポイント：記憶を取得（仮実装）
+@app.get("/get-memory")
+async def get_memory(limit: int = 10):
+    headers = {
+        "apikey": SUPABASE_API_KEY,
+        "Authorization": f"Bearer {SUPABASE_API_KEY}"
+    }
+    response = requests.get(f"{SUPABASE_URL}/rest/v1/memory_fragments?limit={limit}&order=created_at.desc", headers=headers)
+    
     if response.status_code != 200:
-        raise HTTPException(status_code=response.status_code, detail="Supabaseからの取得に失敗しました")
+        raise HTTPException(status_code=500, detail="Supabase GET failed")
 
     return response.json()
